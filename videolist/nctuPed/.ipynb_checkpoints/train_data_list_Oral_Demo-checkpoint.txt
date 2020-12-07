@@ -1,0 +1,8 @@
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 1-30
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 31-60
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 61-90
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 91-120
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 121-150
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 151-180
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 181-210
+data/nctu_ped/nctuPed_Train_Oral_Demo_128x220.avi 211-240
