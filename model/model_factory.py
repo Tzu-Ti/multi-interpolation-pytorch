@@ -35,7 +35,7 @@ class Model(object):
             self.network = Network(self.num_layers, num_hidden,
                                    parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
                                    parser_params.img_size, parser_params.img_channel,
-                                   parser_params.filter_size, parser_params.stride).cuda(1)
+                                   parser_params.filter_size, parser_params.stride).cuda(0)
 #             self.network = DataParallel(self.network)
         else:
             raise ValueError('Name of network unknown {}'.format(parser_params.model_name))
@@ -45,9 +45,9 @@ class Model(object):
         self.criterion = Criterion.Loss()
             
     def train(self, input_tensor, gt_tensor):
-        patch_tensor = pixelDownShuffle(input_tensor, self.patch_size).cuda(1)
+        patch_tensor = pixelDownShuffle(input_tensor, self.patch_size).cuda(0)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
-        patch_gt_tensor = pixelDownShuffle(gt_tensor, self.patch_size).cuda(1)
+        patch_gt_tensor = pixelDownShuffle(gt_tensor, self.patch_size).cuda(0)
         
         self.optimizer.zero_grad()
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
@@ -62,7 +62,7 @@ class Model(object):
         return loss.detach().cpu().numpy(), l1_loss.detach().cpu().numpy(), l2_loss.detach().cpu().numpy()
         
     def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch):
-        patch_tensor = pixelDownShuffle(input_tensor, self.patch_size).cuda(1)
+        patch_tensor = pixelDownShuffle(input_tensor, self.patch_size).cuda(0)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)

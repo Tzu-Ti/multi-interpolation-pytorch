@@ -76,7 +76,10 @@ def process_command():
                         help='batch size for training.')
     parser.add_argument('--checkpoint_interval', default=10,
                         type=int,
-                        help='number of epoch saving model parameter')
+                        help='number of epoch to save model parameter')
+    parser.add_argument('--test_interval', default=10,
+                        type=int,
+                        help='number of epoch to test')
     parser.add_argument('--resume', default='',
                         help='checkpoint path')
     
@@ -144,7 +147,7 @@ def main():
         train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
         valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
         
-#         # training
+        # training
         train_list_length = len(train_video_list)
         all_loss, all_l1_loss, all_l2_loss = [], [], []
         idx = 1
@@ -163,20 +166,32 @@ def main():
         writer.add_scalar('Train/Loss', np.mean(all_loss), epoch)
         
         # validation
-        print("Testing...")
-        all_psnr = []
-        for vid_path, seq, seq_gt in valid_loader:
-            batch_psnr = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
-            for psnr in batch_psnr:
-                all_psnr.append(psnr)
-        aver_psnr = np.mean(all_psnr, axis=0)
-        print("Average PSNR: {}".format(aver_psnr))
+        if epoch % args.test_interval == 0:
+            print("Testing...")
+            all_psnr = []
+            for vid_path, seq, seq_gt in valid_loader:
+                batch_psnr = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
+                for psnr in batch_psnr:
+                    all_psnr.append(psnr)
+            aver_psnr = np.mean(all_psnr, axis=0)
+            print("Average PSNR: {}".format(aver_psnr))
         
         # saving model
         if epoch % args.checkpoint_interval == 0:
             print("Saving checkpoint...")
             LSTM.save_checkpoint(epoch, mask_probability, args.save_dir)
+            
+    print("Saving last checkpoint...")
+    LSTM.save_checkpoint(epoch, mask_probability, args.save_dir)
     
+    print("Saving last validation...")
+    all_psnr = []
+    for vid_path, seq, seq_gt in valid_loader:
+        batch_psnr = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
+        for psnr in batch_psnr:
+            all_psnr.append(psnr)
+    aver_psnr = np.mean(all_psnr, axis=0)
+    print("Average PSNR: {}".format(aver_psnr))
     
 if __name__ == '__main__':
     main()

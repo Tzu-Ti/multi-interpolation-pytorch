@@ -64,7 +64,7 @@ class RNN(nn.Module):
         width = fw_seq.shape[4]
         
         # initialize zero
-        zero = torch.zeros([batch, self.num_hidden[0], height, width]).cuda(1)
+        zero = torch.zeros([batch, self.num_hidden[0], height, width]).cuda(0)
         
         # Initialize LSTM hidden state and cell state
         hidden_fw = []
