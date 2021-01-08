@@ -9,7 +9,7 @@ import os
 from torch.optim import Adam
 from torch.nn import DataParallel
 
-from model import BiLSTM
+from model import BiLSTM, BiLSTM3
 from model import Criterion
 from utils.metrics import compare_PSNR
 from utils.pixelShuffle import pixelDownShuffle, pixelUpShuffle
@@ -27,7 +27,8 @@ class Model(object):
         self.patch_size = parser_params.patch_size
         self.num_layers = len(num_hidden)
         networks_map = {
-            'BiLSTM': BiLSTM.RNN
+            'BiLSTM': BiLSTM.RNN,
+            'BiLSTM-3': BiLSTM3.RNN
         }
 
         if parser_params.model_name in networks_map:
