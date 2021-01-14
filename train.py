@@ -130,14 +130,14 @@ def main():
             mask_probability = 0
         
         # Create train and validation dataset
-        train_dataset = videodataset.VideoDataset(train_video_list,
+        train_dataset = videodataset.VideoDataset(train_video_list, args.dataset_name,
                                                   seq_length=args.seq_length,
                                                   img_size=args.img_size,
                                                   img_channel=args.img_channel,
                                                   mode="train",
                                                   mask_probability=mask_probability)
 
-        valid_dataset = videodataset.VideoDataset(valid_video_list, 
+        valid_dataset = videodataset.VideoDataset(valid_video_list, args.dataset_name,
                                                   seq_length=args.seq_length, 
                                                   img_size=args.img_size, 
                                                   img_channel=args.img_channel, 
@@ -161,6 +161,7 @@ def main():
 
             idx += args.batch_size
             
+        # Write in TensorBoard
         writer.add_scalar('Train/L1-Loss', np.mean(all_l1_loss), epoch)
         writer.add_scalar('Train/L2-Loss', np.mean(all_l2_loss), epoch)
         writer.add_scalar('Train/Loss', np.mean(all_loss), epoch)
@@ -175,6 +176,8 @@ def main():
                     all_psnr.append(psnr)
             aver_psnr = np.mean(all_psnr, axis=0)
             print("Average PSNR: {}".format(aver_psnr))
+            # Write in TensorBoard
+            writer.add_scalar('Train/PSNR', aver_psnr)
         
         # saving model
         if epoch % args.checkpoint_interval == 0:
@@ -195,5 +198,3 @@ def main():
     
 if __name__ == '__main__':
     main()
-    
-    

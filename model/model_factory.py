@@ -28,7 +28,7 @@ class Model(object):
         self.num_layers = len(num_hidden)
         networks_map = {
             'BiLSTM': BiLSTM.RNN,
-            'BiLSTM-3': BiLSTM3.RNN
+            'Bi-LSTM3': BiLSTM3.RNN
         }
 
         if parser_params.model_name in networks_map:
