@@ -11,7 +11,7 @@ from torch.nn import DataParallel
 
 from model import BiLSTM, BiLSTM3
 from model import Criterion
-from utils.metrics import compare_PSNR
+from utils.metrics import compare_PSNR, compare_SSIM
 from utils.pixelShuffle import pixelDownShuffle, pixelUpShuffle
 
 class Model(object):
@@ -78,7 +78,6 @@ class Model(object):
         for batch in range(self.batch_size):
             # get file path and name
             path = vid_path[batch]
-            print(path)
             f_name = path.split('/')[-1]
             
             ep_folder = os.path.join(gen_frm_dir, str(epoch))
@@ -95,17 +94,21 @@ class Model(object):
                 pred_img = np.transpose(batch_pred_seq[t], (1, 2, 0))
                 gt_img = np.transpose(batch_gt_seq[t], (1, 2, 0))
                 
+                # save prediction and GT
                 pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
                 cv2.imwrite(pred_path, pred_img)
                 gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
                 cv2.imwrite(gt_path, gt_img)
                 
                 psnr = compare_PSNR(pred_img, gt_img)
+                ssim = compare_SSIM(pred_img, gt_img)
                 seq_psnr.append(psnr)
+                seq_ssim.append(ssim)
                 
             batch_psnr.append(seq_psnr) 
-            print("PSNR: {}".format(seq_psnr))
-        return batch_psnr
+            batch_ssim.append(seq_ssim)
+            print("PSNR: {}, SSIM: {}".format(seq_psnr, seq_ssim))
+        return batch_psnr, batch_ssim
     
     def save_checkpoint(self, epoch, mask_probability, save_dir):
         if not os.path.isdir(save_dir):
