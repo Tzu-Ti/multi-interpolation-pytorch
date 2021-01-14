@@ -102,7 +102,7 @@ def main():
         
     # Training setting
     mask_probability = 1
-    delta = 0.025
+    delta = 0.035
     pretrained_epoch = 0
     writer = SummaryWriter(args.log_dir)
     
