@@ -3,6 +3,7 @@ __author__ = 'Titi'
 
 import videodataset
 from model.model_factory import Model
+from model.model_factory_CA import Model_CA
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ def process_command():
                         help='The name of dataset.')
     parser.add_argument('--train_data_paths', default='videolist/UCF-101/train_data_list.txt',
                         help='train data paths.')
-    parser.add_argument('--valid_data_paths', default='videolist/UCF-101/val_data_list_sample300.txt',
+    parser.add_argument('--valid_data_paths', default='videolist/UCF-101/val_data_list_sample320.txt',
                         help='validation data paths.')
     parser.add_argument('--save_dir',
                         required=True,
@@ -63,6 +64,8 @@ def process_command():
     parser.add_argument('--patch_size', default=4,
                         type=int,
                         help='PixelShuffle parameter')
+    parser.add_argument('--LSTM_pretrained', default='',
+                        help="LSTM pretrained model path")
     
     # training setting
     parser.add_argument('--lr', default=0.001,
@@ -74,6 +77,9 @@ def process_command():
     parser.add_argument('--epochs', default=100,
                         type=int,
                         help='batch size for training.')
+    parser.add_argument('--delta', default=0.035,
+                        type=float,
+                        help='teacher ratio of mask probability')
     parser.add_argument('--checkpoint_interval', default=10,
                         type=int,
                         help='number of epoch to save model parameter')
@@ -91,7 +97,10 @@ def main():
     
     # Loading LSTM model
     print("Loading LSTM model..")
-    LSTM = Model(args, device)
+    if not args.LSTM_pretrained:
+        LSTM = Model(args, device)
+    else:
+        LSTM = Model_CA(args, device)
     
     # get video list from video_list_paths
     with open(args.train_data_paths, 'r') as f:
@@ -102,7 +111,7 @@ def main():
         
     # Training setting
     mask_probability = 1
-    delta = 0.025
+    delta = args.delta
     pretrained_epoch = 0
     writer = SummaryWriter(args.log_dir)
     
@@ -117,6 +126,8 @@ def main():
             mask_probability = checkpoint['mask_probability']
             # model loading weight
             LSTM.load_checkpoint(model_state_dict, optimizer_state_dict)
+        else:
+            raise "No this file"
             
     # Start training
     for epoch in range(pretrained_epoch, args.epochs):
@@ -128,6 +139,8 @@ def main():
         if epoch < half_epochs:
             mask_probability -= delta
         else:
+            mask_probability = 0
+        if args.LSTM_pretrained:
             mask_probability = 0
         
         # Create train and validation dataset
@@ -147,7 +160,7 @@ def main():
 
         train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
         valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-        
+
         # training
         train_list_length = len(train_video_list)
         all_loss, all_l1_loss, all_l2_loss = [], [], []
@@ -171,31 +184,47 @@ def main():
         if epoch % args.test_interval == 0:
             print("Testing...")
             all_psnr = []
+            all_ssim = []
             for vid_path, seq, seq_gt in valid_loader:
-                batch_psnr = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
-                for psnr in batch_psnr:
+                batch_psnr, batch_ssim = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
+                for psnr, ssim in zip(batch_psnr, batch_ssim):
                     all_psnr.append(psnr)
+                    all_ssim.append(ssim)
             aver_psnr = np.mean(all_psnr, axis=0)
+            aver_ssim = np.mean(all_ssim, axis=0)
+            
             print("Average PSNR: {}".format(aver_psnr))
+            print("Average SSIM: {}".format(aver_ssim))
+
             # Write in TensorBoard
-            writer.add_scalar('Train/PSNR', aver_psnr)
+            psnr = np.mean(aver_psnr[1:args.seq_length-1:2])
+            ssim = np.mean(aver_ssim[1:args.seq_length-1:2])
+            writer.add_scalar('Train/PSNR', psnr, epoch)
+            writer.add_scalar('Train/SSIM', ssim, epoch)
         
         # saving model
         if epoch % args.checkpoint_interval == 0:
             print("Saving checkpoint...")
             LSTM.save_checkpoint(epoch, mask_probability, args.save_dir)
+            print("Saving model...")
+            LSTM.save_model(epoch, args.save_dir)
             
     print("Saving last checkpoint...")
     LSTM.save_checkpoint(epoch, mask_probability, args.save_dir)
+    LSTM.save_model(epoch, args.save_dir)
     
     print("Saving last validation...")
     all_psnr = []
+    all_ssim = []
     for vid_path, seq, seq_gt in valid_loader:
-        batch_psnr = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
-        for psnr in batch_psnr:
+        batch_psnr, batch_ssim = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
+        for psnr, ssim in zip(batch_psnr, batch_ssim):
             all_psnr.append(psnr)
+            all_ssim.append(ssim)
     aver_psnr = np.mean(all_psnr, axis=0)
+    aver_ssim = np.mean(all_ssim, axis=0)
     print("Average PSNR: {}".format(aver_psnr))
+    print("Average SSIM: {}".format(aver_ssim))
     
 if __name__ == '__main__':
     main()

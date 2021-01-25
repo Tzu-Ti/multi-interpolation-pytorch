@@ -12,7 +12,8 @@ from torch.nn import DataParallel
 from model import BiLSTM, BiLSTM3
 from model import Criterion
 from utils.metrics import compare_PSNR, compare_SSIM
-from utils.pixelShuffle import pixelDownShuffle, pixelUpShuffle
+from utils.load_checkpoint import loading
+from utils.pixelShuffle_torch import pixel_shuffle, seq_pixel_shuffle
 
 class Model(object):
     def __init__(self, parser_params, device):
@@ -28,33 +29,39 @@ class Model(object):
         self.num_layers = len(num_hidden)
         networks_map = {
             'BiLSTM': BiLSTM.RNN,
-            'Bi-LSTM3': BiLSTM3.RNN
+            'Bi-LSTM3': BiLSTM3.RNN,
         }
 
         if parser_params.model_name in networks_map:
-            Network = networks_map[parser_params.model_name]
-            self.network = Network(self.num_layers, num_hidden,
-                                   parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
-                                   parser_params.img_size, parser_params.img_channel,
-                                   parser_params.filter_size, parser_params.stride)
-            self.network = DataParallel(self.network, device_ids = [0, 1])
+            if parser_params.LSTM_pretrained:
+                print("Loading LSTM pretrained model...")
+                self.network = torch.load(parser_params.LSTM_pretrained)
+                #### freeze weight
+                for param in self.network.parameters():
+                    param.requires_grad = False
+            else:
+                Network = networks_map[parser_params.model_name]
+                self.network = Network(self.num_layers, num_hidden,
+                                       parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
+                                       parser_params.img_size, parser_params.img_channel,
+                                       parser_params.filter_size, parser_params.stride)
+                self.network = DataParallel(self.network, device_ids = [0, 1])
+                
             self.network.to(device)
         else:
             raise ValueError('Name of network unknown {}'.format(parser_params.model_name))
-            
+
         self.optimizer = Adam(self.network.parameters(), lr=parser_params.lr)
-#         self.optimizer = DataParallel(self.optimizer)
         self.criterion = Criterion.Loss()
             
     def train(self, input_tensor, gt_tensor):
-        patch_tensor = pixelDownShuffle(input_tensor, self.patch_size).type(torch.cuda.FloatTensor)
+        patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
-        patch_gt_tensor = pixelDownShuffle(gt_tensor, self.patch_size).type(torch.cuda.FloatTensor)
-        
+
         self.optimizer.zero_grad()
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
-
-        loss, l1_loss, l2_loss = self.criterion(pred_seq, patch_gt_tensor)
+        
+        loss, l1_loss, l2_loss = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
         
         loss.backward()
         self.optimizer.step()
@@ -64,12 +71,13 @@ class Model(object):
         return loss.detach().cpu().numpy(), l1_loss.detach().cpu().numpy(), l2_loss.detach().cpu().numpy()
         
     def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch):
-        patch_tensor = pixelDownShuffle(input_tensor, self.patch_size).type(torch.cuda.FloatTensor)
+        patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
+        pred_seq = pred_seq.detach().cpu().numpy()
         
-        pred_seq = pixelUpShuffle(pred_seq.detach().cpu().numpy(), self.patch_size)
+#         pred_seq = pixelUpShuffle(pred_seq.detach().cpu().numpy(), 4)
 
         pred_seq = pred_seq * 255
         gt_tensor = gt_tensor.numpy() * 255
@@ -126,3 +134,10 @@ class Model(object):
     def load_checkpoint(self, model_state_dict, optimizer_state_dict):
         self.network.load_state_dict(model_state_dict)
         self.optimizer.load_state_dict(optimizer_state_dict)
+        
+    def save_model(self, epoch, save_dir):
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+            
+        save_path = os.path.join(save_dir, 'model_{}.pt'.format(epoch))
+        torch.save(self.network.module.state_dict(), save_path)

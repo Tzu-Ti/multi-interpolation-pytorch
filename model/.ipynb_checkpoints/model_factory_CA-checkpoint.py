@@ -9,13 +9,13 @@ import os
 from torch.optim import Adam
 from torch.nn import DataParallel
 
-from model import BiLSTM, BiLSTM3
+from model import BiLSTM, BiLSTM3, ResModule
 from model import Criterion
 from utils.metrics import compare_PSNR, compare_SSIM
 from utils.load_checkpoint import loading
 from utils.pixelShuffle_torch import pixel_shuffle, seq_pixel_shuffle
 
-class Model(object):
+class Model_CA(object):
     def __init__(self, parser_params, device):
         """
         :param parser_params: parser args
@@ -29,7 +29,7 @@ class Model(object):
         self.num_layers = len(num_hidden)
         networks_map = {
             'BiLSTM': BiLSTM.RNN,
-            'Bi-LSTM3': BiLSTM3.RNN,
+            'Bi-LSTM3': BiLSTM3.RNN
         }
 
         if parser_params.model_name in networks_map:
@@ -48,23 +48,41 @@ class Model(object):
                 self.network = DataParallel(self.network, device_ids = [0, 1])
                 
             self.network.to(device)
+            
+            self.CA = ResModule.RES(n_resgroups=1, n_resblocks=6, n_channel=48, )
+            self.CA = DataParallel(self.CA, device_ids = [0, 1])
+            self.CA.to(device)
         else:
             raise ValueError('Name of network unknown {}'.format(parser_params.model_name))
 
         self.optimizer = Adam(self.network.parameters(), lr=parser_params.lr)
         self.criterion = Criterion.Loss()
+        self.optimizer_CA = Adam(self.CA.parameters(), lr=parser_params.lr)
             
     def train(self, input_tensor, gt_tensor):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
 
         self.optimizer.zero_grad()
+        self.optimizer_CA.zero_grad()
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
+        
+        x_gen = [None for i in range(7)]
+        for t in range(7):
+            if t % 2 == 0:
+                x_gen[t] = pred_seq[:, t]
+            else:
+                x = pixel_shuffle(pred_seq[:, t], 1/4)
+                gen = self.CA(x)
+                x_gen[t] = pixel_shuffle(gen, 4)
+        
+        pred_seq = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
         
         loss, l1_loss, l2_loss = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
         
         loss.backward()
-        self.optimizer.step()
+        self.optimizer_CA.step()
+#         self.optimizer.step()
         
         print("Loss: {}".format(loss.detach().cpu().numpy()))
         
@@ -75,6 +93,18 @@ class Model(object):
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
+        
+        x_gen = [None for i in range(7)]
+        for t in range(7):
+            if t % 2 == 0:
+                x_gen[t] = pred_seq[:, t]
+            else:
+                x = pixel_shuffle(pred_seq[:, t], 1/4)
+                gen = self.CA(x)
+                x_gen[t] = pixel_shuffle(gen, 4)
+        
+        pred_seq = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
+        
         pred_seq = pred_seq.detach().cpu().numpy()
         
 #         pred_seq = pixelUpShuffle(pred_seq.detach().cpu().numpy(), 4)
@@ -140,4 +170,4 @@ class Model(object):
             os.makedirs(save_dir)
             
         save_path = os.path.join(save_dir, 'model_{}.pt'.format(epoch))
-        torch.save(self.network.module.state_dict(), save_path)
+        torch.save(self.network, save_path)

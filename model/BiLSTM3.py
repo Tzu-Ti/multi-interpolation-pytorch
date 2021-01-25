@@ -7,6 +7,8 @@ import numpy as np
 from model.CausalLSTM import CausalLSTMCell
 from model.GradientHighwayUnit import GHU
 
+from utils.pixelShuffle_torch import pixel_shuffle
+
 class RNN(nn.Module):
     def __init__(self, num_layers, num_hidden, seq_length, patch_size, batch_size, img_size, img_channel, filter_size, stride):
         super(RNN, self).__init__()
@@ -214,9 +216,11 @@ class RNN(nn.Module):
         # Generate complete output
         for t in range(self.seq_length):
             if t % 2 == 0:
-                x_gen[t] = fw_seq[:, t]
+                gen = fw_seq[:, t]
+                x_gen[t] = pixel_shuffle(gen, 4)
             else:
-                x_gen[t] = self.conv_last(hiddenConcatConv[t//2])
+                gen = self.conv_last(hiddenConcatConv[t//2])
+                x_gen[t] = pixel_shuffle(gen, 4)
                 
         pred_frames = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
 
