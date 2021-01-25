@@ -15,6 +15,7 @@ class RNN(nn.Module):
 
         self.frame_channel = patch_size * patch_size * img_channel
         self.seq_length = seq_length
+        self.patch_size = patch_size
         self.pred_length = seq_length//2 # frame interpolation numbers
         self.num_layers = num_layers
         self.num_hidden = num_hidden
@@ -217,10 +218,10 @@ class RNN(nn.Module):
         for t in range(self.seq_length):
             if t % 2 == 0:
                 gen = fw_seq[:, t]
-                x_gen[t] = pixel_shuffle(gen, 4)
+                x_gen[t] = pixel_shuffle(gen, self.patch_size)
             else:
                 gen = self.conv_last(hiddenConcatConv[t//2])
-                x_gen[t] = pixel_shuffle(gen, 4)
+                x_gen[t] = pixel_shuffle(gen, self.patch_size)
                 
         pred_frames = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
 
