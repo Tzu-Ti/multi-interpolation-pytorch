@@ -49,7 +49,9 @@ class Model_CA(object):
                 
             self.network.to(device)
             
-            self.CA = ResModule.RES(n_resgroups=1, n_resblocks=6, n_channel=48, )
+            self.CA = ResModule.RES(n_resgroups=parser_params.n_resgroups,
+                                    n_resblocks=parser_params.n_resblocks,
+                                    n_channel=parser_params.img_channel*(parser_params.patch_size**2))
             self.CA = DataParallel(self.CA, device_ids = [0, 1])
             self.CA.to(device)
         else:
@@ -65,7 +67,9 @@ class Model_CA(object):
 
         self.optimizer.zero_grad()
         self.optimizer_CA.zero_grad()
-        pred_seq = self.network(patch_tensor, patch_rev_tensor)
+        
+        with torch.no_grad():
+            pred_seq = self.network(patch_tensor, patch_rev_tensor)
         
         x_gen = [None for i in range(7)]
         for t in range(7):
