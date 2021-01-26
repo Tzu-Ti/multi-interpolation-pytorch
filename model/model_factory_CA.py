@@ -57,7 +57,7 @@ class Model_CA(object):
         else:
             raise ValueError('Name of network unknown {}'.format(parser_params.model_name))
 
-        self.optimizer = Adam(self.network.parameters(), lr=parser_params.lr)
+#         self.optimizer = Adam(self.network.parameters(), lr=parser_params.lr)
         self.criterion = Criterion.Loss()
         self.optimizer_CA = Adam(self.CA.parameters(), lr=parser_params.lr)
             
@@ -65,7 +65,6 @@ class Model_CA(object):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
 
-        self.optimizer.zero_grad()
         self.optimizer_CA.zero_grad()
         
         with torch.no_grad():
@@ -86,7 +85,6 @@ class Model_CA(object):
         
         loss.backward()
         self.optimizer_CA.step()
-#         self.optimizer.step()
         
         print("Loss: {}".format(loss.detach().cpu().numpy()))
         
@@ -157,21 +155,21 @@ class Model_CA(object):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
         
-        save_path = os.path.join(save_dir, 'checkpoint_{}.tar'.format(epoch))
+        save_path = os.path.join(save_dir, 'CA_checkpoint_{}.tar'.format(epoch))
         torch.save({
             'epoch': epoch,
             'mask_probability': mask_probability,
-            'model_state_dict': self.network.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict()
+            'model_state_dict': self.CA.state_dict(),
+            'optimizer_state_dict': self.optimizer_CA.state_dict()
         }, save_path)
         
     def load_checkpoint(self, model_state_dict, optimizer_state_dict):
-        self.network.load_state_dict(model_state_dict)
-        self.optimizer.load_state_dict(optimizer_state_dict)
+        self.CA.load_state_dict(model_state_dict)
+        self.optimizer_CA.load_state_dict(optimizer_state_dict)
         
     def save_model(self, epoch, save_dir):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
             
-        save_path = os.path.join(save_dir, 'model_{}.pt'.format(epoch))
-        torch.save(self.network, save_path)
+        save_path = os.path.join(save_dir, 'CA_model_{}.pt'.format(epoch))
+        torch.save(self.CA, save_path)

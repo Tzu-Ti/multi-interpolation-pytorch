@@ -218,10 +218,10 @@ class RNN(nn.Module):
         for t in range(self.seq_length):
             if t % 2 == 0:
                 gen = fw_seq[:, t]
-                x_gen[t] = pixel_shuffle(gen, self.patch_size)
+                x_gen[t] = pixel_shuffle(gen, 4)
             else:
                 gen = self.conv_last(hiddenConcatConv[t//2])
-                x_gen[t] = pixel_shuffle(gen, self.patch_size)
+                x_gen[t] = pixel_shuffle(gen, 4)
                 
         pred_frames = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
 
