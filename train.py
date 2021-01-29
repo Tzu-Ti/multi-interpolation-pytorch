@@ -66,6 +66,9 @@ def process_command():
                         help='PixelShuffle parameter')
     parser.add_argument('--LSTM_pretrained', default='',
                         help="LSTM pretrained model path")
+    parser.add_argument('--CA_patch_size', default=8,
+                        type=int,
+                        help="Channel attention pixelshuffle factor")
     parser.add_argument('--n_resgroups', default=5,
                         type=int,
                         help="Channel attention number of Residual Groups")

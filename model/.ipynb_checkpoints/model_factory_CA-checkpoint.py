@@ -27,6 +27,7 @@ class Model_CA(object):
         self.batch_size = parser_params.batch_size
         self.patch_size = parser_params.patch_size
         self.num_layers = len(num_hidden)
+        self.CA_patch_size = parser_params.CA_patch_size
         networks_map = {
             'BiLSTM': BiLSTM.RNN,
             'Bi-LSTM3': BiLSTM3.RNN
@@ -51,7 +52,7 @@ class Model_CA(object):
             
             self.CA = ResModule.RES(n_resgroups=parser_params.n_resgroups,
                                     n_resblocks=parser_params.n_resblocks,
-                                    n_channel=parser_params.img_channel*(parser_params.patch_size**2))
+                                    n_channel=parser_params.img_channel*(parser_params.CA_patch_size**2))
             self.CA = DataParallel(self.CA, device_ids = [0, 1])
             self.CA.to(device)
         else:
@@ -75,9 +76,9 @@ class Model_CA(object):
             if t % 2 == 0:
                 x_gen[t] = pred_seq[:, t]
             else:
-                x = pixel_shuffle(pred_seq[:, t], 1/4)
+                x = pixel_shuffle(pred_seq[:, t], 1/self.CA_patch_size)
                 gen = self.CA(x)
-                x_gen[t] = pixel_shuffle(gen, 4)
+                x_gen[t] = pixel_shuffle(gen, self.CA_patch_size)
         
         pred_seq = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
         
