@@ -105,11 +105,12 @@ def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     
     # Loading LSTM model
-    print("Loading LSTM model..")
+    print("Loading LSTM model...", end='')
     if not args.LSTM_pretrained:
         LSTM = Model(args, device)
     else:
         LSTM = Model_CA(args, device)
+    print("...OK")
     
     # get video list from video_list_paths
     with open(args.train_data_paths, 'r') as f:
@@ -234,6 +235,12 @@ def main():
     aver_ssim = np.mean(all_ssim, axis=0)
     print("Average PSNR: {}".format(aver_psnr))
     print("Average SSIM: {}".format(aver_ssim))
+    
+    # Write in TensorBoard
+    psnr = np.mean(aver_psnr[1:args.seq_length-1:2])
+    ssim = np.mean(aver_ssim[1:args.seq_length-1:2])
+    writer.add_scalar('Train/PSNR', psnr, epoch)
+    writer.add_scalar('Train/SSIM', ssim, epoch)
     
 if __name__ == '__main__':
     main()

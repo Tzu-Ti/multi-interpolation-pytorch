@@ -102,9 +102,9 @@ class Model_CA(object):
             if t % 2 == 0:
                 x_gen[t] = pred_seq[:, t]
             else:
-                x = pixel_shuffle(pred_seq[:, t], 1/4)
+                x = pixel_shuffle(pred_seq[:, t], 1/self.CA_patch_size)
                 gen = self.CA(x)
-                x_gen[t] = pixel_shuffle(gen, 4)
+                x_gen[t] = pixel_shuffle(gen, self.CA_patch_size)
         
         pred_seq = torch.stack(x_gen, dim=0).permute(1, 0, 2, 3, 4).contiguous()
         
