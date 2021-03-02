@@ -1,0 +1,17 @@
+imageio==2.2.0
+matplotlib==2.0.2
+numpy==1.16.6
+opencv-python==4.1.1.26
+panda==0.3.1
+pandas==0.20.3
+Pillow==6.2.2
+scikit-image==0.14.5
+scipy==0.18.1
+six==1.10.0
+tensorboard==1.13.1
+tensorboardX==0.8
+tensorflow-estimator==1.13.0
+tensorflow-gpu==1.13.2
+torch==0.3.1
+torchvision==0.2.0
+tqdm==4.41.1
