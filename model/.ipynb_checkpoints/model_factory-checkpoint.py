@@ -45,7 +45,7 @@ class Model(object):
                                        parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
                                        parser_params.img_size, parser_params.img_channel,
                                        parser_params.filter_size, parser_params.stride)
-                self.network = DataParallel(self.network, device_ids = [0, 1])
+                self.network = DataParallel(self.network, device_ids = [0, 1, 2])
                 
             self.network.to(device)
         else:

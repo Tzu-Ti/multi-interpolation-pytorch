@@ -4,8 +4,8 @@ python train.py \
 --dataset_name vimeo90K \
 --train_data_paths ../vimeo_septuplet/sep_trainlist.txt \
 --valid_data_paths ../vimeo_septuplet/seq_vallist.txt \
---save_dir ../MVFI_output/checkpoints/vimeo_cslstm_20210125 \
---gen_frm_dir ../MVFI_output/results/vimeo_cslstm_20210125 \
+--save_dir ../MVFI_output/checkpoints/vimeo_cslstm_20210126 \
+--gen_frm_dir ../MVFI_output/results/vimeo_cslstm_20210126 \
 --log_dir ../tensorflow/logs/vimeo_cslstm_20210125 \
 --model_name BiLSTM \
 --seq_length 7 \

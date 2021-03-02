@@ -4,6 +4,7 @@ __author__ = 'Titi'
 import videodataset
 from model.model_factory import Model
 from model.model_factory_CA import Model_CA
+from model.model_factory_fine_tune import Model_fine_tune
 
 import numpy as np
 import matplotlib.pyplot as plt

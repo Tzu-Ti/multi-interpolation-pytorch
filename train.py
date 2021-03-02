@@ -4,6 +4,7 @@ __author__ = 'Titi'
 import videodataset
 from model.model_factory import Model
 from model.model_factory_CA import Model_CA
+from model.model_factory_fine_tune import Model_fine_tune
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -66,6 +67,9 @@ def process_command():
                         help='PixelShuffle parameter')
     parser.add_argument('--LSTM_pretrained', default='',
                         help="LSTM pretrained model path")
+    parser.add_argument('--CA', default=False,
+                        type=bool,
+                        help='Is using Channel Attention')
     parser.add_argument('--CA_patch_size', default=8,
                         type=int,
                         help="Channel attention pixelshuffle factor")
@@ -75,6 +79,9 @@ def process_command():
     parser.add_argument('--n_resblocks', default=12,
                         type=int,
                         help="Channel attention number of Residual Blocks")
+    parser.add_argument('--fine_tune', default=False,
+                        type=bool,
+                        help="Is using fine tune")
     
     # training setting
     parser.add_argument('--lr', default=0.001,
@@ -106,10 +113,12 @@ def main():
     
     # Loading LSTM model
     print("Loading LSTM model...", end='')
-    if not args.LSTM_pretrained:
-        LSTM = Model(args, device)
-    else:
+    if args.CA:
         LSTM = Model_CA(args, device)
+    elif args.fine_tune:
+        LSTM = Model_fine_tune(args, device)
+    else:
+        LSTM = Model(args, device)
     print("...OK")
     
     # get video list from video_list_paths
