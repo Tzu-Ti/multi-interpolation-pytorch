@@ -104,6 +104,8 @@ def process_command():
                         help='number of epoch to test')
     parser.add_argument('--resume', default='',
                         help='checkpoint path')
+    parser.add_argument('--loss', default='L1+L2',
+                        help='ex. []+[] (L1, L2, vgg)')
     
     return parser.parse_args()
 
@@ -177,27 +179,35 @@ def main():
                                                   mode="valid",
                                                   mask_probability=0)
 
-        train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=8)
         valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
         # training
         train_list_length = len(train_video_list)
-        all_loss, all_l1_loss, all_l2_loss = [], [], []
+        # specify loss type
+        loss_type = args.loss.split('+')
+        all_loss_dict = {
+            'all_loss': []
+        }
+        for l in loss_type:
+            all_loss_dict[l] = []
+
+        # start training
         idx = 1
         for vid_path, seq, seq_gt in train_loader:
             print("Epoch: {}, iteration: {}/{}".format(epoch, idx, train_list_length))
             
-            loss, l1_loss, l2_loss = LSTM.train(seq, seq_gt)
-            all_loss.append(loss)
-            all_l1_loss.append(l1_loss)
-            all_l2_loss.append(l2_loss)
+            batch_loss_dict = LSTM.train(seq, seq_gt)
+            all_loss_dict['all_loss'].append(batch_loss_dict['all_loss'].detach().cpu().numpy())
+            for l in loss_type:
+                all_loss_dict[l].append(batch_loss_dict[l].detach().cpu().numpy())
 
             idx += args.batch_size
             
         # Write in TensorBoard
-        writer.add_scalar('Train/L1-Loss', np.mean(all_l1_loss), epoch)
-        writer.add_scalar('Train/L2-Loss', np.mean(all_l2_loss), epoch)
-        writer.add_scalar('Train/Loss', np.mean(all_loss), epoch)
+        for l in loss_type:
+            writer.add_scalar('Train/{}-Loss'.format(l), np.mean(all_loss_dict[l]), epoch)
+        writer.add_scalar('Train/Loss', np.mean(all_loss_dict['all_loss']), epoch)
         
         # validation
         if epoch % args.test_interval == 0:

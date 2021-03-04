@@ -52,7 +52,10 @@ class Model(object):
             raise ValueError('Name of network unknown {}'.format(parser_params.model_name))
 
         self.optimizer = Adam(self.network.parameters(), lr=parser_params.lr)
-        self.criterion = Criterion.Loss()
+        
+        # specify loss type
+        loss_type = parser_params.loss.split('+')
+        self.criterion = Criterion.Loss(loss_type)
             
     def train(self, input_tensor, gt_tensor):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
@@ -60,15 +63,15 @@ class Model(object):
 
         self.optimizer.zero_grad()
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
+
+        loss_value = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
         
-        loss, l1_loss, l2_loss = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
-        
-        loss.backward()
+        loss_value['all_loss'].backward()
         self.optimizer.step()
         
-        print("Loss: {}".format(loss.detach().cpu().numpy()))
+        print("Loss: {}".format(loss_value['all_loss'].detach().cpu().numpy()))
         
-        return loss.detach().cpu().numpy(), l1_loss.detach().cpu().numpy(), l2_loss.detach().cpu().numpy()
+        return loss_value
         
     def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
@@ -76,8 +79,6 @@ class Model(object):
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
         pred_seq = pred_seq.detach().cpu().numpy()
-        
-#         pred_seq = pixelUpShuffle(pred_seq.detach().cpu().numpy(), 4)
 
         pred_seq = pred_seq * 255
         gt_tensor = gt_tensor.numpy() * 255
