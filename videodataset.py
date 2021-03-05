@@ -107,8 +107,8 @@ class VideoDataset(Dataset):
         
         start_index = None
         # Specify video start index
-#         if len(lst) != 1:
-#             start_index = int(lst[1].split('-')[0]) - 1
+        if len(lst) != 1:
+            start_index = int(lst[1].split('-')[0]) - 1
 
         seq = None
         if self.dataset_name == 'base_dataset':
