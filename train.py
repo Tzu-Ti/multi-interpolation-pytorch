@@ -13,6 +13,7 @@ import math
 import random
 import os
 import cv2
+from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader
@@ -99,7 +100,7 @@ def process_command():
     parser.add_argument('--checkpoint_interval', default=10,
                         type=int,
                         help='number of epoch to save model parameter')
-    parser.add_argument('--test_interval', default=10,
+    parser.add_argument('--test_interval', default=5,
                         type=int,
                         help='number of epoch to test')
     parser.add_argument('--resume', default='',
@@ -179,8 +180,8 @@ def main():
                                                   mode="valid",
                                                   mask_probability=0)
 
-        train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=8)
-        valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
+        valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
 
         # training
         train_list_length = len(train_video_list)
@@ -214,8 +215,8 @@ def main():
             print("Testing...")
             all_psnr = []
             all_ssim = []
-            for vid_path, seq, seq_gt in valid_loader:
-                batch_psnr, batch_ssim = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch)
+            for vid_path, seq, seq_gt, seq_origin in tqdm(valid_loader):
+                batch_psnr, batch_ssim = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_origin, epoch)
                 for psnr, ssim in zip(batch_psnr, batch_ssim):
                     all_psnr.append(psnr)
                     all_ssim.append(ssim)

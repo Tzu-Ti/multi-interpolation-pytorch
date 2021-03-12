@@ -88,6 +88,8 @@ def process_command():
                         help='number of epoch to test')
     parser.add_argument('--checkpoint_path', required=True,
                         help='checkpoint path')
+    parser.add_argument('--loss', default='L1+L2',
+                        help='ex. []+[] (L1, L2, vgg)')
     
     return parser.parse_args()
 
@@ -97,24 +99,25 @@ def main():
     
     # Loading LSTM model
     print("Loading LSTM model...", end='')
-    if not args.LSTM_pretrained:
-        LSTM = Model(args, device)
-    else:
-        LSTM = Model_CA(args, device)
+    
+    LSTM = Model(args, device)
     print("...OK")
     
     # get video list from video_list_paths
     with open(args.valid_data_paths, 'r') as f:
         valid_video_list = [line.strip() for line in f.readlines()]
     
-    # if args.resume, it will resume training
-    checkpoint = torch.load(args.checkpoint_path)
-    model_state_dict = checkpoint['model_state_dict']
-    optimizer_state_dict = checkpoint['optimizer_state_dict']
-    pretrained_epoch = checkpoint['epoch']
-    mask_probability = checkpoint['mask_probability']
-    # model loading weight
-    LSTM.load_checkpoint(model_state_dict, optimizer_state_dict)
+    # Loading model parameter
+    if os.path.isfile(args.checkpoint_path):
+        checkpoint = torch.load(args.checkpoint_path)
+        model_state_dict = checkpoint['model_state_dict']
+        optimizer_state_dict = checkpoint['optimizer_state_dict']
+        pretrained_epoch = checkpoint['epoch']
+        mask_probability = checkpoint['mask_probability']
+        # model loading weight
+        LSTM.load_checkpoint(model_state_dict, optimizer_state_dict)
+    else:
+        raise "[Error] No this checkpoint file"
         
     # Create validation dataset
     valid_dataset = videodataset.VideoDataset(valid_video_list, args.dataset_name,
@@ -123,7 +126,7 @@ def main():
                                               img_channel=args.img_channel, 
                                               mode="valid",
                                               mask_probability=0)
-    valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
         
     # validation
     print("Testing...")

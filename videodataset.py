@@ -57,10 +57,11 @@ def load_video_data(vid_path, img_size, out_num, img_channel, mode, start_idx):
     
     # extract image from video
     seq = [None for n in range(out_num)]
+    seq_origin = [None for n in range(out_num)]
     flip_token = random.random() > 0.5 # random filp token
     for t in range(out_num):
         img = vid.get_data(start_idx + t)
-        img = cv2.resize(img, (img_size, img_size))
+        origin_size = np.shape(img)
         
         # if training, random horizontal flip
         if mode == 'train':
@@ -72,13 +73,18 @@ def load_video_data(vid_path, img_size, out_num, img_channel, mode, start_idx):
 
         # convert [0, 255] to [0, 1]
         norm = transform(img).numpy()
+        seq_origin[t] = norm
+        
+        resized_img = cv2.resize(img, (img_size, img_size))
+        norm = transform(resized_img).numpy()
         seq[t] = norm
 
     # reshape back to four dimension
     # [output_number, image_size, image_size, image_channel]
     seq = np.reshape(seq, [out_num, img_channel, img_size, img_size])
+    seq_origin = np.reshape(seq_origin, [out_num, img_channel, origin_size[0], origin_size[1]])
     
-    return seq
+    return seq, seq_origin
 
 def sample_random_noise(size):
     return np.random.uniform(low=0.0, high=1.0, size=size)
@@ -112,7 +118,7 @@ class VideoDataset(Dataset):
 
         seq = None
         if self.dataset_name == 'base_dataset':
-            seq = load_video_data("../"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode, start_index)
+            seq, seq_origin = load_video_data("../"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode, start_index)
         elif self.dataset_name == 'vimeo90K':
             seq = load_vimeo_data("../vimeo_septuplet/sequences/"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode)
         
@@ -126,7 +132,10 @@ class VideoDataset(Dataset):
             if not token:
                 seq[idx*2+1] = sample_random_noise((self.img_channel, self.img_size, self.img_size))
         
-        return vid_path, seq, seq_gt
+        if self.mode == 'train':
+            return vid_path, seq, seq_gt
+        elif self.mode == 'valid':
+            return vid_path, seq, seq_gt, seq_origin
     
     def __len__(self):
         return len(self.video_list)
