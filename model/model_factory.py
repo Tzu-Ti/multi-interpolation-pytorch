@@ -73,7 +73,7 @@ class Model(object):
         loss_value['all_loss'].backward()
         
         # if loss exploding, skip this training
-        if loss_value['all_loss'].data.item() == 1.5 * self.pred_loss:
+        if loss_value['all_loss'].data.item() > 1.5 * self.pred_loss:
             print("[Warning] Loss exploding...( {} )".format(loss_value['all_loss'].detach().cpu().numpy()))
             return loss_value
         

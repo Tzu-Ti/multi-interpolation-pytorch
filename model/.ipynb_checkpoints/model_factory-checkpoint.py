@@ -45,14 +45,18 @@ class Model(object):
                                        parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
                                        parser_params.img_size, parser_params.img_channel,
                                        parser_params.filter_size, parser_params.stride)
-                self.network = DataParallel(self.network, device_ids = [0, 1, 2])
+                self.network = DataParallel(self.network, device_ids = [0, 1, 2, 3])
                 
             self.network.to(device)
         else:
             raise ValueError('Name of network unknown {}'.format(parser_params.model_name))
 
         self.optimizer = Adam(self.network.parameters(), lr=parser_params.lr)
-        self.criterion = Criterion.Loss()
+        
+        # specify loss type
+        loss_type = parser_params.loss.split('+')
+        self.criterion = Criterion.Loss(loss_type)
+        self.pred_loss = 0
             
     def train(self, input_tensor, gt_tensor):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
@@ -60,15 +64,25 @@ class Model(object):
 
         self.optimizer.zero_grad()
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
+
+        loss_value = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
         
-        loss, l1_loss, l2_loss = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
+        if self.pred_loss == 0:
+            self.pred_loss = loss_value['all_loss'].data.item()
         
-        loss.backward()
+        loss_value['all_loss'].backward()
+        
+        # if loss exploding, skip this training
+        if loss_value['all_loss'].data.item() > 1.5 * self.pred_loss:
+            print("[Warning] Loss exploding...( {} )".format(loss_value['all_loss'].detach().cpu().numpy()))
+            return loss_value
+        
         self.optimizer.step()
+        self.pred_loss = loss_value['all_loss'].data.item()
         
-        print("Loss: {}".format(loss.detach().cpu().numpy()))
+        print("Loss: {}".format(loss_value['all_loss'].detach().cpu().numpy()))
         
-        return loss.detach().cpu().numpy(), l1_loss.detach().cpu().numpy(), l2_loss.detach().cpu().numpy()
+        return loss_value
         
     def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
@@ -76,8 +90,6 @@ class Model(object):
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
         pred_seq = pred_seq.detach().cpu().numpy()
-        
-#         pred_seq = pixelUpShuffle(pred_seq.detach().cpu().numpy(), 4)
 
         pred_seq = pred_seq * 255
         gt_tensor = gt_tensor.numpy() * 255
@@ -86,13 +98,16 @@ class Model(object):
         batch_ssim = []
         for batch in range(self.batch_size):
             # get file path and name
-            path = vid_path[batch]
+            try:
+                path = vid_path[batch]
+            except:
+                continue
             f_name = path.split('/')[-1]
             
             ep_folder = os.path.join(gen_frm_dir, str(epoch))
             f_folder = os.path.join(ep_folder, f_name)
-            if not os.path.isdir(f_folder):
-                os.makedirs(f_folder)
+#             if not os.path.isdir(f_folder):
+#                 os.makedirs(f_folder)
             
             batch_pred_seq = pred_seq[batch]
             batch_gt_seq = gt_tensor[batch]
@@ -103,11 +118,15 @@ class Model(object):
                 pred_img = np.transpose(batch_pred_seq[t], (1, 2, 0))
                 gt_img = np.transpose(batch_gt_seq[t], (1, 2, 0))
                 
+                gt_size = np.shape(gt_img)
+                
+                pred_img = cv2.resize(pred_img, (gt_size[1], gt_size[0]))
+                
                 # save prediction and GT
-                pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
-                cv2.imwrite(pred_path, pred_img)
-                gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
-                cv2.imwrite(gt_path, gt_img)
+#                 pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
+#                 cv2.imwrite(pred_path, pred_img)
+#                 gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
+#                 cv2.imwrite(gt_path, gt_img)
                 
                 psnr = compare_PSNR(pred_img, gt_img)
                 ssim = compare_SSIM(pred_img, gt_img)
@@ -116,7 +135,7 @@ class Model(object):
                 
             batch_psnr.append(seq_psnr) 
             batch_ssim.append(seq_ssim)
-            print("PSNR: {}, SSIM: {}".format(seq_psnr, seq_ssim))
+#             print("PSNR: {}, SSIM: {}".format(seq_psnr, seq_ssim))
         return batch_psnr, batch_ssim
     
     def save_checkpoint(self, epoch, mask_probability, save_dir):
