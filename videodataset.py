@@ -120,7 +120,7 @@ class VideoDataset(Dataset):
         if self.dataset_name == 'base_dataset':
             seq, seq_origin = load_video_data("../"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode, start_index)
         elif self.dataset_name == 'vimeo90K':
-            seq = load_vimeo_data("../vimeo_septuplet/sequences/"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode)
+            seq = load_vimeo_data("../data/vimeo90K_Done/"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode)
         
         pred_length = self.seq_length // 2
         random_token = np.array([random.random() for i in range(pred_length)])
