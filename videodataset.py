@@ -3,6 +3,7 @@ import os
 import imageio
 import numpy as np
 import random
+from PIL import Image
 
 import torch
 from torch.utils.data.dataset import Dataset
@@ -10,28 +11,30 @@ from torchvision import transforms
 
 def load_vimeo_data(vid_path, img_size, out_num, img_channel, mode):
     transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(0.5),
+        transforms.RandomVerticalFlip(0.5),
         transforms.ToTensor(), # range [0, 255] -> [0.0,1.0]
     ])
-    
+    T = transforms.ToTensor() # range [0, 255] -> [0.0,1.0]
+
     # get image from folder
     seq = [None for n in range(out_num)]
-    flip_token = random.random() > 0.5 # random filp token
+    seed = random.randint(0, 2**32)
     for t in range(out_num):
-        img = cv2.imread(os.path.join(vid_path, "im{}.png".format(t+1)))
-        img = cv2.resize(img, (img_size, img_size))
-        
-        # if training, random horizontal flip
+        img = Image.open(os.path.join(vid_path, "{}.png".format(t+1)))
+
+        # if training, random horizontal or vertical flip
         if mode == 'train':
-            if flip_token:
-                img = cv2.flip(img, 1)
-        
-        # convert [0, 255] to [0, 1]
-        norm = transform(img).numpy()
-        seq[t] = norm
+            torch.manual_seed(seed)
+            img = transform(img).numpy()
+        else:
+            img = T(img)
+            img = transforms.Resize(224)(img).numpy()
+        seq[t] = img
         
     # reshape back to four dimension
     # [output_number, image_size, image_size, image_channel]
-    seq = np.reshape(seq, [out_num, img_channel, img_size, img_size])
+    seq = np.array(seq)
     
     return seq
         
@@ -120,7 +123,7 @@ class VideoDataset(Dataset):
         if self.dataset_name == 'base_dataset':
             seq, seq_origin = load_video_data("../"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode, start_index)
         elif self.dataset_name == 'vimeo90K':
-            seq = load_vimeo_data("../data/vimeo90K_Done/"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode)
+            seq = load_vimeo_data(vid_path, self.img_size, self.seq_length, self.img_channel, self.mode)
         
         pred_length = self.seq_length // 2
         random_token = np.array([random.random() for i in range(pred_length)])
@@ -132,10 +135,7 @@ class VideoDataset(Dataset):
             if not token:
                 seq[idx*2+1] = sample_random_noise((self.img_channel, self.img_size, self.img_size))
         
-        if self.mode == 'train':
-            return vid_path, seq, seq_gt
-        elif self.mode == 'valid':
-            return vid_path, seq, seq_gt, seq_origin
+        return vid_path, seq, seq_gt
     
     def __len__(self):
         return len(self.video_list)

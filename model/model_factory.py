@@ -45,7 +45,7 @@ class Model(object):
                                        parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
                                        parser_params.img_size, parser_params.img_channel,
                                        parser_params.filter_size, parser_params.stride)
-                self.network = DataParallel(self.network, device_ids = [0, 1, 2, 3])
+                self.network = DataParallel(self.network, device_ids = [0, 1])
                 
             self.network.to(device)
         else:
@@ -106,8 +106,8 @@ class Model(object):
             
             ep_folder = os.path.join(gen_frm_dir, str(epoch))
             f_folder = os.path.join(ep_folder, f_name)
-#             if not os.path.isdir(f_folder):
-#                 os.makedirs(f_folder)
+            if not os.path.isdir(f_folder):
+                os.makedirs(f_folder)
             
             batch_pred_seq = pred_seq[batch]
             batch_gt_seq = gt_tensor[batch]
@@ -118,21 +118,24 @@ class Model(object):
                 pred_img = np.transpose(batch_pred_seq[t], (1, 2, 0))
                 gt_img = np.transpose(batch_gt_seq[t], (1, 2, 0))
                 
-                gt_size = np.shape(gt_img)
-                
-                pred_img = cv2.resize(pred_img, (gt_size[1], gt_size[0]))
-                
                 # save prediction and GT
-#                 pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
-#                 cv2.imwrite(pred_path, pred_img)
-#                 gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
-#                 cv2.imwrite(gt_path, gt_img)
+                pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
+                cv2.imwrite(pred_path, cv2.cvtColor(pred_img, cv2.COLOR_BGR2RGB))
+                gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
+                cv2.imwrite(gt_path, cv2.cvtColor(gt_img, cv2.COLOR_BGR2RGB))
                 
                 psnr = compare_PSNR(pred_img, gt_img)
                 ssim = compare_SSIM(pred_img, gt_img)
+            
+                # 2021-03-30
+                if psnr < 20:
+                    print(psnr)
+                    print(path)
+                    print("------------------------------")
+                    break
+            
                 seq_psnr.append(psnr)
                 seq_ssim.append(ssim)
-                
             batch_psnr.append(seq_psnr) 
             batch_ssim.append(seq_ssim)
 #             print("PSNR: {}, SSIM: {}".format(seq_psnr, seq_ssim))
