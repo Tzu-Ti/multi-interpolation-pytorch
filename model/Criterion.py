@@ -81,23 +81,15 @@ class Loss(nn.Module):
         self.loss_type = loss_type
         
         
-    def forward(self, pred_tensor, gt_tensor):
-        batch_size = pred_tensor.size()[0]
-        
+    def forward(self, pred_tensor, gt_tensor):  
         loss_value = {
             'all_loss': 0
         }
+
         for l in self.loss_type:
-            loss_value[l] = 0
-            
-        for b in range(batch_size):
-            for l in self.loss_type:
-                loss_value[l] += self.loss_function[l](pred_tensor[b], gt_tensor[b]) / batch_size
-                
-        
-        for l in self.loss_type:
+            loss_value[l] = self.loss_function[l](pred_tensor, gt_tensor)
             loss_value['all_loss'] += loss_value[l]
-        
+            
         
         return loss_value
             

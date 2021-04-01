@@ -61,7 +61,7 @@ def main():
     print("Testing...")
     psnrs, ssims = init_meters()
     for vid_path, seq, seq_gt in tqdm(valid_loader):
-        LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, 0, psnrs, ssims)
+        psnrs, ssims = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, 0, psnrs, ssims)
 
     print("Average PSNR: {}".format(psnrs.avg))
     print("Average SSIM: {}".format(ssim.avg))

@@ -59,31 +59,27 @@ class Model(object):
         self.criterion = Criterion.Loss(loss_type)
         self.pred_loss = 0
             
-    def train(self, input_tensor, gt_tensor):
+    def train(self, input_tensor, gt_tensor, loss_dict):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
 
         self.optimizer.zero_grad()
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
 
-        loss_value = self.criterion(pred_seq, gt_tensor.type(torch.cuda.FloatTensor))
-        
-        if self.pred_loss == 0:
-            self.pred_loss = loss_value['all_loss'].data.item()
-        
-        loss_value['all_loss'].backward()
-        
-        # if loss exploding, skip this training
-        if loss_value['all_loss'].data.item() > 1.5 * self.pred_loss:
-            print("[Warning] Loss exploding...( {} )".format(loss_value['all_loss'].detach().cpu().numpy()))
-            return loss_value
+        all_loss = 0
+        for b in range(self.batch_size):
+            loss_value = self.criterion(pred_seq[b], gt_tensor[b].type(torch.cuda.FloatTensor))
+            all_loss += loss_value['all_loss']
+            for key in loss_value:
+                loss_dict[key].update(loss_value[key].detach().cpu().numpy())
+        all_loss /= self.batch_size
+        all_loss.backward()
         
         self.optimizer.step()
-        self.pred_loss = loss_value['all_loss'].data.item()
         
-        print("Loss: {}".format(loss_value['all_loss'].detach().cpu().numpy()))
+        print("Loss: {}".format(loss_dict['all_loss'].avg))
         
-        return loss_value
+        return loss_dict
         
     def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch, psnrs, ssims):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
@@ -131,6 +127,8 @@ class Model(object):
                 cv2.imwrite(pred_path, cv2.cvtColor(pred_img, cv2.COLOR_BGR2RGB))
                 gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
                 cv2.imwrite(gt_path, cv2.cvtColor(gt_img, cv2.COLOR_BGR2RGB))
+                
+        return psnrs, ssims
 
     
     def save_checkpoint(self, epoch, mask_probability, save_dir):

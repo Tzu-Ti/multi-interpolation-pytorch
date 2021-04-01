@@ -10,9 +10,12 @@ def process_command():
                         help='train data paths.')
     parser.add_argument('--valid_data_paths', default='videolist/UCF-101/val_data_list_sample320.txt',
                         help='validation data paths.')
-    parser.add_argument('--gen_frm_dir',
-                        required=True,
+    parser.add_argument('--save_dir', default='../MVFI_output/checkpoints/test',
+                        help='directory to store trained checkpoint.')
+    parser.add_argument('--gen_frm_dir', default='../MVFI_output/results/test',
                         help='directory to store result.')
+    parser.add_argument('--log_dir', default='../MVFI_output/logs/test',
+                        help='log directory for TensorBoard')
     
     # model
     parser.add_argument('--model_name',
@@ -63,6 +66,9 @@ def process_command():
     parser.add_argument('--epochs', default=100,
                         type=int,
                         help='batch size for training.')
+    parser.add_argument('--delta', default=0.035,
+                        type=float,
+                        help='teacher ratio of mask probability')
     parser.add_argument('--checkpoint_interval', default=10,
                         type=int,
                         help='number of epoch to save model parameter')

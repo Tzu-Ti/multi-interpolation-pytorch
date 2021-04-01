@@ -26,6 +26,14 @@ def init_meters():
     psnrs = AverageMeter()
     ssims = AverageMeter()
     return psnrs, ssims
+
+def init_loss(loss_type):
+    loss_dict = {
+        'all_loss': AverageMeter()
+    }
+    for l_type in loss_type:
+        loss_dict[l_type] = AverageMeter()
+    return loss_dict
         
 def compare_PSNR(img1, img2):
     mse = np.mean((img1 - img2) ** 2)

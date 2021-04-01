@@ -26,6 +26,9 @@ def init_meters():
     psnrs = AverageMeter()
     ssims = AverageMeter()
     return psnrs, ssims
+
+def init_loss():
+    return AverageMeter()
         
 def compare_PSNR(img1, img2):
     mse = np.mean((img1 - img2) ** 2)

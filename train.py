@@ -5,6 +5,8 @@ import videodataset
 from model.model_factory import Model
 from model.model_factory_CA import Model_CA
 from model.model_factory_fine_tune import Model_fine_tune
+from utils.config import process_command
+from utils.metrics import init_meters, init_loss
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,97 +21,6 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-def process_command():
-    parser = argparse.ArgumentParser()
-    
-    # data I/O
-    parser.add_argument('--dataset_name', default='base_dataset',
-                        help='The name of dataset.')
-    parser.add_argument('--train_data_paths', default='videolist/UCF-101/train_data_list.txt',
-                        help='train data paths.')
-    parser.add_argument('--valid_data_paths', default='videolist/UCF-101/val_data_list_sample320.txt',
-                        help='validation data paths.')
-    parser.add_argument('--save_dir',
-                        required=True,
-                        help='directory to store trained checkpoint.')
-    parser.add_argument('--gen_frm_dir',
-                        required=True,
-                        help='directory to store result.')
-    parser.add_argument('--log_dir',
-                        required=True,
-                        help='log directory for TensorBoard')
-    
-    # model
-    parser.add_argument('--model_name',
-                        required=True,
-                        help='Model name')
-    parser.add_argument('--seq_length',
-                        required=True,
-                        type=int,
-                        help='sequence length') 
-    parser.add_argument('--img_size',
-                        required=True,
-                        type=int,
-                        help='image size')
-    parser.add_argument('--img_channel',
-                        required=True,
-                        type=int,
-                        help='image channel')
-    parser.add_argument('--num_hidden', default='64,64,64,64',
-                        help='Hidden state channel')
-    parser.add_argument('--filter_size', default=5,
-                        type=int,
-                        help='The filter size of convolution in the lstm')
-    parser.add_argument('--stride', default=1,
-                        type=int,
-                        help='The stride of convolution in the lstm')
-    parser.add_argument('--patch_size', default=4,
-                        type=int,
-                        help='PixelShuffle parameter')
-    parser.add_argument('--LSTM_pretrained', default='',
-                        help="LSTM pretrained model path")
-    parser.add_argument('--CA', default=False,
-                        type=bool,
-                        help='Is using Channel Attention')
-    parser.add_argument('--CA_patch_size', default=8,
-                        type=int,
-                        help="Channel attention pixelshuffle factor")
-    parser.add_argument('--n_resgroups', default=5,
-                        type=int,
-                        help="Channel attention number of Residual Groups")
-    parser.add_argument('--n_resblocks', default=12,
-                        type=int,
-                        help="Channel attention number of Residual Blocks")
-    parser.add_argument('--fine_tune', default=False,
-                        type=bool,
-                        help="Is using fine tune")
-    
-    # training setting
-    parser.add_argument('--lr', default=0.001,
-                        type=float,
-                        help='base learning rate')
-    parser.add_argument('--batch_size', default=4,
-                        type=int,
-                        help='batch size for training.')
-    parser.add_argument('--epochs', default=100,
-                        type=int,
-                        help='batch size for training.')
-    parser.add_argument('--delta', default=0.035,
-                        type=float,
-                        help='teacher ratio of mask probability')
-    parser.add_argument('--checkpoint_interval', default=10,
-                        type=int,
-                        help='number of epoch to save model parameter')
-    parser.add_argument('--test_interval', default=5,
-                        type=int,
-                        help='number of epoch to test')
-    parser.add_argument('--resume', default='',
-                        help='checkpoint path')
-    parser.add_argument('--loss', default='L1+L2',
-                        help='ex. []+[] (L1, L2, vgg)')
-    
-    return parser.parse_args()
-
 def main():
     args = process_command()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -122,6 +33,7 @@ def main():
         LSTM = Model_fine_tune(args, device)
     else:
         LSTM = Model(args, device)
+    LSTM.network.train()
     print("...OK")
     
     # get video list from video_list_paths
@@ -185,38 +97,30 @@ def main():
 
         # training
         train_list_length = len(train_video_list)
+        
         # specify loss type
-        loss_type = args.loss.split('+')
-        all_loss_dict = {
-            'all_loss': []
-        }
-        for l in loss_type:
-            all_loss_dict[l] = []
-
+        loss_type = args.loss.split('+') 
+        loss_dict = init_loss(loss_type)
+        
         # start training
         idx = 1
         for vid_path, seq, seq_gt in train_loader:
             print("Epoch: {}, iteration: {}/{}".format(epoch, idx, train_list_length))
             
-            batch_loss_dict = LSTM.train(seq, seq_gt)
-            all_loss_dict['all_loss'].append(batch_loss_dict['all_loss'].detach().cpu().numpy())
-            for l in loss_type:
-                all_loss_dict[l].append(batch_loss_dict[l].detach().cpu().numpy())
-
+            loss_dict = LSTM.train(seq, seq_gt, loss_dict)
             idx += args.batch_size
             
         # Write in TensorBoard
         for l in loss_type:
-            writer.add_scalar('Train/{}-Loss'.format(l), np.mean(all_loss_dict[l]), epoch)
-        writer.add_scalar('Train/Loss', np.mean(all_loss_dict['all_loss']), epoch)
+            writer.add_scalar('Train/{}-Loss'.format(l), loss_dict[l].avg, epoch)
+        writer.add_scalar('Train/Loss', loss_dict['all_loss'].avg, epoch)
         
         # validation
         if epoch % args.test_interval == 0:
             print("Testing...")
-            all_psnr = []
-            all_ssim = []
-            for vid_path, seq, seq_gt, seq_origin in tqdm(valid_loader):
-                batch_psnr, batch_ssim = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_origin, epoch)
+            psnrs, ssims = init_meters()
+            for vid_path, seq, seq_gt in tqdm(valid_loader):
+                LSTM.test(vid_path, args.gen_frm_dir, seq, seq_origin, epoch)
                 for psnr, ssim in zip(batch_psnr, batch_ssim):
                     all_psnr.append(psnr)
                     all_ssim.append(ssim)
