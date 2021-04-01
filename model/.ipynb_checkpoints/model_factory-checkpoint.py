@@ -5,13 +5,14 @@ import torch.nn as nn
 import numpy as np
 import cv2
 import os
+import shutil
 
 from torch.optim import Adam
 from torch.nn import DataParallel
 
 from model import BiLSTM, BiLSTM3
 from model import Criterion
-from utils.metrics import compare_PSNR, compare_SSIM
+from utils.metrics import compare_PSNR, compare_SSIM, calc_metrics
 from utils.load_checkpoint import loading
 from utils.pixelShuffle_torch import pixel_shuffle, seq_pixel_shuffle
 
@@ -45,7 +46,7 @@ class Model(object):
                                        parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
                                        parser_params.img_size, parser_params.img_channel,
                                        parser_params.filter_size, parser_params.stride)
-                self.network = DataParallel(self.network, device_ids = [0, 1])
+                self.network = DataParallel(self.network, device_ids = [0, 1, 2])
                 
             self.network.to(device)
         else:
@@ -84,18 +85,12 @@ class Model(object):
         
         return loss_value
         
-    def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch):
+    def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch, psnrs, ssims):
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
-        pred_seq = pred_seq.detach().cpu().numpy()
 
-        pred_seq = pred_seq * 255
-        gt_tensor = gt_tensor.numpy() * 255
-
-        batch_psnr = []
-        batch_ssim = []
         for batch in range(self.batch_size):
             # get file path and name
             try:
@@ -112,34 +107,31 @@ class Model(object):
             batch_pred_seq = pred_seq[batch]
             batch_gt_seq = gt_tensor[batch]
             
-            seq_psnr = []
-            seq_ssim = []
             for t in range(self.seq_length):
-                pred_img = np.transpose(batch_pred_seq[t], (1, 2, 0))
-                gt_img = np.transpose(batch_gt_seq[t], (1, 2, 0))
+                pred_img = batch_pred_seq[t]
+                gt_img = batch_gt_seq[t]
+                
+                psnr, ssim, pred_img, gt_img = calc_metrics(pred_img, gt_img)
+
+                f_path = path.split('/')
+                if t % 2 == 1:
+                    if psnr < 30:
+                        print("[Score {} too low: {}]".format(psnr, path))
+                        shutil.move(path, os.path.join('../data/low', f_path[-2], f_path[-1]))
+                        break
+                    elif psnr > 45:
+                        print("[Score {} too high: {}]".format(psnr, path))
+                        shutil.move(path, os.path.join('../data/high', f_path[-2], f_path[-1]))
+                        break
+                    psnrs.update(psnr)
+                    ssims.update(ssim)
                 
                 # save prediction and GT
                 pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
                 cv2.imwrite(pred_path, cv2.cvtColor(pred_img, cv2.COLOR_BGR2RGB))
                 gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
                 cv2.imwrite(gt_path, cv2.cvtColor(gt_img, cv2.COLOR_BGR2RGB))
-                
-                psnr = compare_PSNR(pred_img, gt_img)
-                ssim = compare_SSIM(pred_img, gt_img)
-            
-                # 2021-03-30
-                if psnr < 20:
-                    print(psnr)
-                    print(path)
-                    print("------------------------------")
-                    break
-            
-                seq_psnr.append(psnr)
-                seq_ssim.append(ssim)
-            batch_psnr.append(seq_psnr) 
-            batch_ssim.append(seq_ssim)
-#             print("PSNR: {}, SSIM: {}".format(seq_psnr, seq_ssim))
-        return batch_psnr, batch_ssim
+
     
     def save_checkpoint(self, epoch, mask_probability, save_dir):
         if not os.path.isdir(save_dir):
