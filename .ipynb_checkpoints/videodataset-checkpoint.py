@@ -19,21 +19,22 @@ def load_vimeo_data(vid_path, img_size, out_num, img_channel, mode):
 
     # get image from folder
     seq = [None for n in range(out_num)]
-#     flip_token = random.random() > 0.5 # random filp token
+    seed = random.randint(0, 2**32)
     for t in range(out_num):
-        img = Image.open(os.path.join(vid_path, "{}.png".format(t+1)))
-#         img = cv2.resize(img, (img_size, img_size))
+        img = Image.open(os.path.join(vid_path, "{}.png".format(t+8)))
 
         # if training, random horizontal or vertical flip
         if mode == 'train':
+            torch.manual_seed(seed)
             img = transform(img).numpy()
         else:
             img = T(img)
-            img = transforms.Resize(224)(img).numpy()
+        
+        if img.shape[0] != img_size:
+            img = transforms.Resize((img_size, img_size))(img).numpy()
         seq[t] = img
         
     # reshape back to four dimension
-    # [output_number, image_size, image_size, image_channel]
     seq = np.array(seq)
     
     return seq
@@ -49,8 +50,11 @@ def load_video_data(vid_path, img_size, out_num, img_channel, mode, start_idx):
     """
     
     transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(0.5),
+        transforms.RandomVerticalFlip(0.5),
         transforms.ToTensor(), # range [0, 255] -> [0.0,1.0]
     ])
+    T = transforms.ToTensor() # range [0, 255] -> [0.0,1.0]
 
     vid = imageio.get_reader(vid_path, "ffmpeg")  # load video
     vid_length = vid.count_frames() # get video length
@@ -60,34 +64,27 @@ def load_video_data(vid_path, img_size, out_num, img_channel, mode, start_idx):
     
     # extract image from video
     seq = [None for n in range(out_num)]
-    seq_origin = [None for n in range(out_num)]
-    flip_token = random.random() > 0.5 # random filp token
+    seed = random.randint(0, 2**32)
     for t in range(out_num):
         img = vid.get_data(start_idx + t)
-        origin_size = np.shape(img)
-        
+        img = Image.fromarray(img) # convert to PIL type
+
         # if training, random horizontal flip
         if mode == 'train':
-            if flip_token:
-                img = cv2.flip(img, 1)
-        # if gray image, convert image to gray
-        if img_channel == 1:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        # convert [0, 255] to [0, 1]
-        norm = transform(img).numpy()
-        seq_origin[t] = norm
-        
-        resized_img = cv2.resize(img, (img_size, img_size))
-        norm = transform(resized_img).numpy()
-        seq[t] = norm
+            torch.manual_seed(seed)
+            img = transoform(img).numpy()
+        else:
+            img = T(img)
+            
+        if img.shape[1] != img_size:
+            img = transforms.Resize((img_size, img_size))(img).numpy()
+        seq[t] = img
 
     # reshape back to four dimension
     # [output_number, image_size, image_size, image_channel]
-    seq = np.reshape(seq, [out_num, img_channel, img_size, img_size])
-    seq_origin = np.reshape(seq_origin, [out_num, img_channel, origin_size[0], origin_size[1]])
+    seq = np.array(seq)
     
-    return seq, seq_origin
+    return seq
 
 def sample_random_noise(size):
     return np.random.uniform(low=0.0, high=1.0, size=size)
@@ -121,7 +118,7 @@ class VideoDataset(Dataset):
 
         seq = None
         if self.dataset_name == 'base_dataset':
-            seq, seq_origin = load_video_data("../"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode, start_index)
+            seq = load_video_data("../"+vid_path, self.img_size, self.seq_length, self.img_channel, self.mode, start_index)
         elif self.dataset_name == 'vimeo90K':
             seq = load_vimeo_data(vid_path, self.img_size, self.seq_length, self.img_channel, self.mode)
         

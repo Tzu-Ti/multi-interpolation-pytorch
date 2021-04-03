@@ -1,3 +1,5 @@
+__author__ = 'Titi'
+
 import argparse
 
 def process_command():
@@ -16,6 +18,8 @@ def process_command():
                         help='directory to store result.')
     parser.add_argument('--log_dir', default='../MVFI_output/logs/test',
                         help='log directory for TensorBoard')
+    parser.add_argument('--save_results', action="store_true",
+                        help='Is save the predictions')
     
     # model
     parser.add_argument('--model_name',

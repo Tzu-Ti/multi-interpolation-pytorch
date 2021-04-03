@@ -6,13 +6,14 @@ import numpy as np
 import cv2
 import os
 import shutil
+import time
 
 from torch.optim import Adam
 from torch.nn import DataParallel
 
 from model import BiLSTM, BiLSTM3
 from model import Criterion
-from utils.metrics import compare_PSNR, compare_SSIM, calc_metrics
+from utils.tools import calc_metrics, save_image
 from utils.load_checkpoint import loading
 from utils.pixelShuffle_torch import pixel_shuffle, seq_pixel_shuffle
 
@@ -28,6 +29,7 @@ class Model(object):
         self.batch_size = parser_params.batch_size
         self.patch_size = parser_params.patch_size
         self.num_layers = len(num_hidden)
+        self.save_results = parser_params.save_results
         networks_map = {
             'BiLSTM': BiLSTM.RNN,
             'Bi-LSTM3': BiLSTM3.RNN,
@@ -82,6 +84,7 @@ class Model(object):
         return loss_dict
         
     def test(self, vid_path, gen_frm_dir, input_tensor, gt_tensor, epoch, psnrs, ssims):
+        gt_tensor = gt_tensor.type(torch.cuda.FloatTensor)
         patch_tensor = seq_pixel_shuffle(input_tensor, 1 / self.patch_size).type(torch.cuda.FloatTensor)
         patch_rev_tensor = torch.flip(patch_tensor, (1, ))
         
@@ -110,23 +113,24 @@ class Model(object):
                 psnr, ssim, pred_img, gt_img = calc_metrics(pred_img, gt_img)
 
                 f_path = path.split('/')
+                
+                psnrs[t].update(psnr)
+                ssims[t].update(ssim)
                 if t % 2 == 1:
-                    if psnr < 30:
-                        print("[Score {} too low: {}]".format(psnr, path))
-                        shutil.move(path, os.path.join('../data/low', f_path[-2], f_path[-1]))
-                        break
-                    elif psnr > 45:
-                        print("[Score {} too high: {}]".format(psnr, path))
-                        shutil.move(path, os.path.join('../data/high', f_path[-2], f_path[-1]))
-                        break
-                    psnrs.update(psnr)
-                    ssims.update(ssim)
+                    if psnr > 50:
+                        print(path)
+                        after_path = os.path.join('../data/high', f_path[-2], f_path[-1])
+                        shutil.move(path, after_path)
+#                     elif psnr < 25:
+#                         after_path = os.path.join('../data/low', f_path[-2], f_path[-1])
+#                         shutil.move(path, after_path)
                 
                 # save prediction and GT
-                pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
-                cv2.imwrite(pred_path, cv2.cvtColor(pred_img, cv2.COLOR_BGR2RGB))
-                gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
-                cv2.imwrite(gt_path, cv2.cvtColor(gt_img, cv2.COLOR_BGR2RGB))
+                if self.save_results:
+                    pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
+                    save_image(pred_img, pred_path)
+                    gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))
+                    save_image(gt_img, gt_path)
                 
         return psnrs, ssims
 

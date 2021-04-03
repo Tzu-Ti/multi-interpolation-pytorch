@@ -120,21 +120,14 @@ def main():
             print("Testing...")
             psnrs, ssims = init_meters()
             for vid_path, seq, seq_gt in tqdm(valid_loader):
-                LSTM.test(vid_path, args.gen_frm_dir, seq, seq_origin, epoch)
-                for psnr, ssim in zip(batch_psnr, batch_ssim):
-                    all_psnr.append(psnr)
-                    all_ssim.append(ssim)
-            aver_psnr = np.mean(all_psnr, axis=0)
-            aver_ssim = np.mean(all_ssim, axis=0)
-            
-            print("Average PSNR: {}".format(aver_psnr))
-            print("Average SSIM: {}".format(aver_ssim))
+                psnrs, ssims = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch, psnrs, ssims)
+
+            print("Average PSNR: {}".format(psnrs.avg))
+            print("Average SSIM: {}".format(ssims.avg))
 
             # Write in TensorBoard
-            psnr = np.mean(aver_psnr[1:args.seq_length-1:2])
-            ssim = np.mean(aver_ssim[1:args.seq_length-1:2])
-            writer.add_scalar('Train/PSNR', psnr, epoch)
-            writer.add_scalar('Train/SSIM', ssim, epoch)
+            writer.add_scalar('Train/PSNR', psnrs.avg, epoch)
+            writer.add_scalar('Train/SSIM', ssims.avg, epoch)
         
         # saving model
         if epoch % args.checkpoint_interval == 0:
@@ -148,23 +141,16 @@ def main():
     LSTM.save_model(epoch, args.save_dir)
     
     print("Saving last validation...")
-    all_psnr = []
-    all_ssim = []
-    for vid_path, seq, seq_gt, seq_origin in tqdm(valid_loader):
-        batch_psnr, batch_ssim = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_origin, epoch)
-        for psnr, ssim in zip(batch_psnr, batch_ssim):
-            all_psnr.append(psnr)
-            all_ssim.append(ssim)
-    aver_psnr = np.mean(all_psnr, axis=0)
-    aver_ssim = np.mean(all_ssim, axis=0)
-    print("Average PSNR: {}".format(aver_psnr))
-    print("Average SSIM: {}".format(aver_ssim))
-    
+    psnrs, ssims = init_meters()
+    for vid_path, seq, seq_gt in tqdm(valid_loader):
+        psnrs, ssims = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, epoch, psnrs, ssims)
+
+    print("Average PSNR: {}".format(psnrs.avg))
+    print("Average SSIM: {}".format(ssims.avg))
+
     # Write in TensorBoard
-    psnr = np.mean(aver_psnr[1:args.seq_length-1:2])
-    ssim = np.mean(aver_ssim[1:args.seq_length-1:2])
-    writer.add_scalar('Train/PSNR', psnr, epoch)
-    writer.add_scalar('Train/SSIM', ssim, epoch)
+    writer.add_scalar('Train/PSNR', psnrs.avg, epoch)
+    writer.add_scalar('Train/SSIM', ssims.avg, epoch)
     
 if __name__ == '__main__':
     main()

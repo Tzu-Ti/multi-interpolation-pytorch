@@ -1,9 +1,11 @@
 __author__ = 'Titi'
 
-from skimage.metrics import structural_similarity as ssim
+from utils.pytorch_msssim import ssim_matlab as ssim_pth
 
 import numpy as np
 import math
+import torch
+import cv2
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -34,20 +36,15 @@ def init_loss(loss_type):
     for l_type in loss_type:
         loss_dict[l_type] = AverageMeter()
     return loss_dict
-        
-def compare_PSNR(img1, img2):
-    mse = np.mean((img1 - img2) ** 2)
-    if mse == 0:
-        return float('inf')
-    
-    PIXEL_MAX = 255.0
-    return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
 
-def compare_SSIM(img1, img2):
+def calc_psnr(img1, img2):
+    '''
+        Here we assume quantized(0-255) arguments.
+    '''
+    diff = (img1 - img2).div(255)
+    mse = diff.pow(2).mean() + 1e-8
     
-    SSIM = ssim(img1, img2, data_range=255, multichannel=True)
-    
-    return SSIM
+    return -10 * math.log10(mse)
 
 def quantize(img, rgb_range=255):
     return img.mul(255 / rgb_range).clamp(0, 255).round()
@@ -56,9 +53,17 @@ def calc_metrics(img1, img2):
     q_img1 = quantize(img1, rgb_range=1.)
     q_img2 = quantize(img2, rgb_range=1.)
     
-    q_img1 = q_img1.cpu().detach().numpy().transpose(1, 2, 0).astype(np.uint8)
-    q_img2 = q_img2.cpu().detach().numpy().transpose(1, 2, 0).astype(np.uint8)
+    psnr = calc_psnr(q_img1, q_img2)
+    ssim = ssim_pth(q_img1.unsqueeze(0), q_img2.unsqueeze(0), val_range=255)
     
-    psnr = compare_PSNR(q_img1, q_img2)
-    ssim = compare_SSIM(q_img1, q_img2)
     return psnr, ssim, q_img1, q_img2
+
+def save_image(img, path, color_mode='RGB'):
+    img = img.cpu().detach().numpy().transpose(1, 2, 0).astype(np.uint8)
+    if color_mode == 'RGB':
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    elif color_mode == 'BGR':
+        pass
+    else:
+        raise
+    cv2.imwrite(path, img)

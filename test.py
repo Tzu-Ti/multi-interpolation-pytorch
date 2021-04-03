@@ -3,8 +3,7 @@ __author__ = 'Titi'
 
 import videodataset
 from model.model_factory import Model
-from model.model_factory_CA import Model_CA
-from utils.metrics import init_meters
+from utils.tools import init_meters
 from utils.config import process_command
 
 import numpy as np
@@ -55,16 +54,22 @@ def main():
                                               img_channel=args.img_channel, 
                                               mode="valid",
                                               mask_probability=0)
-    valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=12)
+    valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
         
     # validation
     print("Testing...")
-    psnrs, ssims = init_meters()
-    for vid_path, seq, seq_gt in tqdm(valid_loader):
-        psnrs, ssims = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, 0, psnrs, ssims)
+    psnrs, ssims = [], []
+    for _ in range(args.seq_length):
+        init_psnr, init_ssim = init_meters()
+        psnrs.append(init_psnr)
+        ssims.append(init_ssim)
+        
+    with torch.no_grad():
+        for vid_path, seq, seq_gt in tqdm(valid_loader):
+            psnrs, ssims = LSTM.test(vid_path, args.gen_frm_dir, seq, seq_gt, 0, psnrs, ssims)
 
-    print("Average PSNR: {}".format(psnrs.avg))
-    print("Average SSIM: {}".format(ssim.avg))
+    for t in range(args.seq_length):
+        print("{}\tPSNR: {:0.3f}, SSIM: {:0.3f}".format(t+1, psnrs[t].avg, ssims[t].avg))
     
 if __name__ == '__main__':
     main()

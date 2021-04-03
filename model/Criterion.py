@@ -89,7 +89,6 @@ class Loss(nn.Module):
         for l in self.loss_type:
             loss_value[l] = self.loss_function[l](pred_tensor, gt_tensor)
             loss_value['all_loss'] += loss_value[l]
-            
         
         return loss_value
             
