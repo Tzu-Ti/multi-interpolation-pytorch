@@ -48,7 +48,7 @@ class Model(object):
                                        parser_params.seq_length, parser_params.patch_size, parser_params.batch_size,
                                        parser_params.img_size, parser_params.img_channel,
                                        parser_params.filter_size, parser_params.stride)
-                self.network = DataParallel(self.network, device_ids = [0, 1, 2])
+                self.network = DataParallel(self.network, device_ids = [0, 1])
                 
             self.network.to(device)
         else:
@@ -116,14 +116,16 @@ class Model(object):
                 
                 psnrs[t].update(psnr)
                 ssims[t].update(ssim)
-                if t % 2 == 1:
-                    if psnr > 50:
-                        print(path)
-                        after_path = os.path.join('../data/high', f_path[-2], f_path[-1])
-                        shutil.move(path, after_path)
-#                     elif psnr < 25:
+#                 if t % 2 == 1:
+#                     if psnr > 50:
+#                         print(path)
+#                         after_path = os.path.join('../data/high', f_path[-2], f_path[-1])
+#                         shutil.move(path, after_path)
+#                         break
+#                     if psnr < 20:
 #                         after_path = os.path.join('../data/low', f_path[-2], f_path[-1])
 #                         shutil.move(path, after_path)
+#                         break
                 
                 # save prediction and GT
                 if self.save_results:
@@ -139,7 +141,7 @@ class Model(object):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
         
-        save_path = os.path.join(save_dir, 'checkpoint_{}.tar'.format(epoch))
+        save_path = os.path.join(save_dir, 'checkpoint_best.tar')
         torch.save({
             'epoch': epoch,
             'mask_probability': mask_probability,

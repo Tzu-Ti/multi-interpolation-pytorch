@@ -14,3 +14,5 @@ python train.py \
 --num_hidden 32,32,32,32 \
 --batch_size 32 \
 --patch_size 4 \
+
+python train.py --dataset vimeo90K --train_data_paths videolist/Vimeo90K/train_list.txt --valid_data_paths videolist/Vimeo90K/test_list.txt --training_name test --model BiLSTM --seq_length 7 --img_size 256 --img_channel 3 --num_hidden 32,32,32,32 --batch_size 64 --lr 0.005 

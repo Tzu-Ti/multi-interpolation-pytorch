@@ -20,19 +20,22 @@ def load_vimeo_data(vid_path, img_size, out_num, img_channel, mode):
     # get image from folder
     seq = [None for n in range(out_num)]
     seed = random.randint(0, 2**32)
+    
+    # random start index
+    start_index = random.randint(1, 30-out_num)
     for t in range(out_num):
-        img = Image.open(os.path.join(vid_path, "{}.png".format(t+8)))
+        img = Image.open(os.path.join(vid_path, "{}.png".format(t+start_index)))
 
         # if training, random horizontal or vertical flip
         if mode == 'train':
             torch.manual_seed(seed)
-            img = transform(img).numpy()
+            img = transform(img)
         else:
             img = T(img)
         
         if img.shape[0] != img_size:
-            img = transforms.Resize((img_size, img_size))(img).numpy()
-        seq[t] = img
+            img = transforms.Resize((img_size, img_size))(img)
+        seq[t] = img.numpy()
         
     # reshape back to four dimension
     seq = np.array(seq)

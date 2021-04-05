@@ -26,7 +26,6 @@ def main():
     
     # Loading LSTM model
     print("Loading LSTM model...", end='')
-    
     LSTM = Model(args, device)
     LSTM.network.eval()
     print("...OK")
@@ -54,7 +53,7 @@ def main():
                                               img_channel=args.img_channel, 
                                               mode="valid",
                                               mask_probability=0)
-    valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
+    valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
         
     # validation
     print("Testing...")

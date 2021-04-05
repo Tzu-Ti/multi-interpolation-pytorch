@@ -12,12 +12,8 @@ def process_command():
                         help='train data paths.')
     parser.add_argument('--valid_data_paths', default='videolist/UCF-101/val_data_list_sample320.txt',
                         help='validation data paths.')
-    parser.add_argument('--save_dir', default='../MVFI_output/checkpoints/test',
-                        help='directory to store trained checkpoint.')
-    parser.add_argument('--gen_frm_dir', default='../MVFI_output/results/test',
-                        help='directory to store result.')
-    parser.add_argument('--log_dir', default='../MVFI_output/logs/test',
-                        help='log directory for TensorBoard')
+    parser.add_argument('--save_dir', default='../MVFI_output')
+    parser.add_argument('--training_name', default='test')
     parser.add_argument('--save_results', action="store_true",
                         help='Is save the predictions')
     
@@ -73,15 +69,12 @@ def process_command():
     parser.add_argument('--delta', default=0.035,
                         type=float,
                         help='teacher ratio of mask probability')
-    parser.add_argument('--checkpoint_interval', default=10,
-                        type=int,
-                        help='number of epoch to save model parameter')
-    parser.add_argument('--test_interval', default=10,
-                        type=int,
-                        help='number of epoch to test')
     parser.add_argument('--checkpoint_path', default='',
                         help='checkpoint path')
     parser.add_argument('--loss', default='L1+L2',
                         help='ex. []+[] (L1, L2, vgg)')
+    parser.add_argument('--num_workers', default=12,
+                        type=int,
+                        help='data loader num_workers')
     
     return parser.parse_args()
