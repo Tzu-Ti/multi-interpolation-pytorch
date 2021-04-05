@@ -66,7 +66,7 @@ def process_command():
     parser.add_argument('--epochs', default=100,
                         type=int,
                         help='batch size for training.')
-    parser.add_argument('--delta', default=0.035,
+    parser.add_argument('--delta', default=0.1,
                         type=float,
                         help='teacher ratio of mask probability')
     parser.add_argument('--checkpoint_path', default='',

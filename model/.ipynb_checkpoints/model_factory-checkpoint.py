@@ -100,8 +100,6 @@ class Model(object):
             
             ep_folder = os.path.join(gen_frm_dir, str(epoch))
             f_folder = os.path.join(ep_folder, f_name)
-            if not os.path.isdir(f_folder):
-                os.makedirs(f_folder)
             
             batch_pred_seq = pred_seq[batch]
             batch_gt_seq = gt_tensor[batch]
@@ -116,19 +114,21 @@ class Model(object):
                 
                 psnrs[t].update(psnr)
                 ssims[t].update(ssim)
-                if t % 2 == 1:
+#                 if t % 2 == 1:
 #                     if psnr > 50:
 #                         print(path)
 #                         after_path = os.path.join('../data/high', f_path[-2], f_path[-1])
 #                         shutil.move(path, after_path)
 #                         break
-                    if psnr < 20:
-                        after_path = os.path.join('../data/low', f_path[-2], f_path[-1])
-                        shutil.move(path, after_path)
-                        break
+#                     if psnr < 20:
+#                         after_path = os.path.join('../data/low', f_path[-2], f_path[-1])
+#                         shutil.move(path, after_path)
+#                         break
                 
                 # save prediction and GT
                 if self.save_results:
+                    if not os.path.isdir(f_folder):
+                        os.makedirs(f_folder)
                     pred_path = os.path.join(f_folder, "pd-{}.png".format(t+1))
                     save_image(pred_img, pred_path)
                     gt_path = os.path.join(f_folder, "gt-{}.png".format(t+1))

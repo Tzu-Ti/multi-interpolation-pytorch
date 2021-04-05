@@ -38,7 +38,7 @@ def train(LSTM, args, train_loader, train_list_length, epoch, writer):
         writer.add_scalar('Train/{}-Loss'.format(l), loss_dict[l].avg, epoch)
     writer.add_scalar('Train/Loss', loss_dict['all_loss'].avg, epoch)
     
-def validation(LSTM, args, valid_loader, gen_dir, writer):
+def validation(LSTM, args, valid_loader, epoch, gen_dir, writer):
     print("Testing...")
     psnrs, ssims = [], []
     for _ in range(args.seq_length):
@@ -54,7 +54,7 @@ def validation(LSTM, args, valid_loader, gen_dir, writer):
     for t in range(args.seq_length):
         print("{}\tPSNR: {:0.3f}, SSIM: {:0.3f}".format(t+1, psnrs[t].avg, ssims[t].avg))
         psnr_avg += psnrs[t].avg
-        ssim_avg += ssim[t].avg
+        ssim_avg += ssims[t].avg
 
     psnr_avg /= args.seq_length
     ssim_avg /= args.seq_length
@@ -119,10 +119,7 @@ def main():
     for epoch in range(pretrained_epoch, args.epochs):
         
         # Create mask to cover the even images
-        # After half epochs, it will cover all even images
-        half_epochs = args.epochs // 2
-        
-        if epoch < half_epochs:
+        if mask_probability > 0:
             mask_probability -= delta
         else:
             mask_probability = 0
@@ -145,13 +142,12 @@ def main():
         
         # validation
         LSTM.network.eval()
-        psnr = validation(LSTM, args, valid_loader, gen_dir, writer)
+        psnr = validation(LSTM, args, valid_loader, epoch, gen_dir, writer)
         
         if psnr > best_psnr:
             print("Saving checkpoint...")
             LSTM.save_checkpoint(epoch, mask_probability, ckpt_dir)
-            best_psnr > psnr
-        break
+            best_psnr = psnr
     
 if __name__ == '__main__':
     main()
