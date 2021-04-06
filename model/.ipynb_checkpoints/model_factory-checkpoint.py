@@ -69,7 +69,7 @@ class Model(object):
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
 
         all_loss = 0
-        for b in range(self.batch_size):
+        for b in range(pred_seq.shape[0]):
             loss_value = self.criterion(pred_seq[b], gt_tensor[b].type(torch.cuda.FloatTensor))
             all_loss += loss_value['all_loss']
             for key in loss_value:
@@ -90,7 +90,7 @@ class Model(object):
         
         pred_seq = self.network(patch_tensor, patch_rev_tensor)
 
-        for batch in range(self.batch_size):
+        for batch in range(pred_seq.shape[0]):
             # get file path and name
             try:
                 path = vid_path[batch]
