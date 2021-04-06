@@ -61,7 +61,7 @@ def validation(LSTM, args, valid_loader, epoch, gen_dir, writer):
     writer.add_scalar('Train/PSNR', psnr_avg.avg, epoch)
     writer.add_scalar('Train/SSIM', ssim_avg.avg, epoch)
     
-    return psnr_avg
+    return psnr_avg.avg
 
 def main():
     args = process_command()
@@ -89,6 +89,7 @@ def main():
     delta = args.delta
     pretrained_epoch = 0
     writer = SummaryWriter(log_dir)
+    best_psnr = 0 
     
     # if args.resume, it will resume training
     if args.checkpoint_path:
@@ -99,6 +100,7 @@ def main():
             optimizer_state_dict = checkpoint['optimizer_state_dict']
             pretrained_epoch = checkpoint['epoch'] + 1
             mask_probability = checkpoint['mask_probability']
+            best_psnr = checkpoint['best_psnr']
             # model loading weight
             LSTM.load_checkpoint(model_state_dict, optimizer_state_dict)
         else:
@@ -113,7 +115,6 @@ def main():
                                               mask_probability=0)
     valid_loader = DataLoader(dataset=valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     
-    best_psnr = 0        
     # Start training
     for epoch in range(pretrained_epoch, args.epochs):
         
@@ -145,8 +146,8 @@ def main():
         
         if psnr > best_psnr:
             print("Saving checkpoint...")
-            LSTM.save_checkpoint(epoch, mask_probability, ckpt_dir)
             best_psnr = psnr
+            LSTM.save_checkpoint(epoch, mask_probability, ckpt_dir, best_psnr)
     
 if __name__ == '__main__':
     main()

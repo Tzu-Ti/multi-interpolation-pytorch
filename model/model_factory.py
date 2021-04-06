@@ -137,7 +137,7 @@ class Model(object):
         return psnrs, ssims
 
     
-    def save_checkpoint(self, epoch, mask_probability, save_dir):
+    def save_checkpoint(self, epoch, mask_probability, save_dir, best_psnr):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
         
@@ -146,7 +146,8 @@ class Model(object):
             'epoch': epoch,
             'mask_probability': mask_probability,
             'model_state_dict': self.network.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict()
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'best_psnr': best_psnr
         }, save_path)
         
     def load_checkpoint(self, model_state_dict, optimizer_state_dict):
