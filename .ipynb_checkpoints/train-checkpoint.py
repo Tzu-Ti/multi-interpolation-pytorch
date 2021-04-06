@@ -50,17 +50,16 @@ def validation(LSTM, args, valid_loader, epoch, gen_dir, writer):
         for vid_path, seq, seq_gt in tqdm(valid_loader):
             psnrs, ssims = LSTM.test(vid_path, gen_dir, seq, seq_gt, epoch, psnrs, ssims)
 
-    psnr_avg, ssim_avg = 0, 0
+    psnr_avg, ssim_avg = init_meters()
     for t in range(args.seq_length):
         print("{}\tPSNR: {:0.3f}, SSIM: {:0.3f}".format(t+1, psnrs[t].avg, ssims[t].avg))
-        psnr_avg += psnrs[t].avg
-        ssim_avg += ssims[t].avg
+        if t % 2 == 1:
+            psnr_avg.update(psnrs[t].avg)
+            ssim_avg.update(ssims[t].avg)
 
-    psnr_avg /= args.seq_length
-    ssim_avg /= args.seq_length
     # Write in TensorBoard
-    writer.add_scalar('Train/PSNR', psnr_avg, epoch)
-    writer.add_scalar('Train/SSIM', ssim_avg, epoch)
+    writer.add_scalar('Train/PSNR', psnr_avg.avg, epoch)
+    writer.add_scalar('Train/SSIM', ssim_avg.avg, epoch)
     
     return psnr_avg
 
@@ -98,7 +97,7 @@ def main():
             checkpoint = torch.load(args.checkpoint_path)
             model_state_dict = checkpoint['model_state_dict']
             optimizer_state_dict = checkpoint['optimizer_state_dict']
-            pretrained_epoch = checkpoint['epoch']
+            pretrained_epoch = checkpoint['epoch'] + 1
             mask_probability = checkpoint['mask_probability']
             # model loading weight
             LSTM.load_checkpoint(model_state_dict, optimizer_state_dict)
