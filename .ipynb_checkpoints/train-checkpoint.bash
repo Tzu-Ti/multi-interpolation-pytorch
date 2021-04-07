@@ -15,4 +15,4 @@ python train.py \
 --batch_size 32 \
 --patch_size 4 \
 
-python train.py --dataset vimeo90K --train_data_paths videolist/Vimeo90K/train_list.txt --valid_data_paths videolist/Vimeo90K/test_list.txt --training_name test --model BiLSTM --seq_length 7 --img_size 256 --img_channel 3 --num_hidden 32,32,32,32 --batch_size 64 --lr 0.005 
+python train.py --dataset vimeo90K --train_data_paths videolist/Vimeo90K/train_list.txt --valid_data_paths videolist/Vimeo90K/test_list400.txt --training_name 20210405 --model BiLSTM --seq_length 7 --img_size 256 --img_channel 3 --num_hidden 64,64,64,64 --batch_size 8 --lr 0.005 --checkpoint_path checkpoint_best.tar --save_results

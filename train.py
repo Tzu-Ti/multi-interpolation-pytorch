@@ -70,7 +70,10 @@ def main():
     gen_dir = os.path.join(args.save_dir, args.training_name, 'results') # directory to store result
     log_dir = os.path.join(args.save_dir, 'logs', args.training_name) # log directory for TensorBoard
     
+    print("Initialize cuDNN...")
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = True
     
     # Loading LSTM model
     print("Loading LSTM model...", end='')

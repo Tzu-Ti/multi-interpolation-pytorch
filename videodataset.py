@@ -13,8 +13,8 @@ def load_vimeo_data(vid_path, img_size, out_num, img_channel, mode):
     transform = transforms.Compose([
         transforms.RandomHorizontalFlip(0.5),
         transforms.RandomVerticalFlip(0.5),
-        transforms.ToTensor(), # range [0, 255] -> [0.0,1.0]
     ])
+    
     T = transforms.ToTensor() # range [0, 255] -> [0.0,1.0]
 
     # get image from folder
@@ -30,12 +30,10 @@ def load_vimeo_data(vid_path, img_size, out_num, img_channel, mode):
         if mode == 'train':
             torch.manual_seed(seed)
             img = transform(img)
-        else:
-            img = T(img)
         
-        if img.shape[0] != img_size:
+        if img.size[0] != img_size:
             img = transforms.Resize((img_size, img_size))(img)
-        seq[t] = img.numpy()
+        seq[t] = T(img).numpy()
         
     # reshape back to four dimension
     seq = np.array(seq)
@@ -55,8 +53,8 @@ def load_video_data(vid_path, img_size, out_num, img_channel, mode, start_idx):
     transform = transforms.Compose([
         transforms.RandomHorizontalFlip(0.5),
         transforms.RandomVerticalFlip(0.5),
-        transforms.ToTensor(), # range [0, 255] -> [0.0,1.0]
     ])
+    
     T = transforms.ToTensor() # range [0, 255] -> [0.0,1.0]
 
     vid = imageio.get_reader(vid_path, "ffmpeg")  # load video
@@ -75,13 +73,11 @@ def load_video_data(vid_path, img_size, out_num, img_channel, mode, start_idx):
         # if training, random horizontal flip
         if mode == 'train':
             torch.manual_seed(seed)
-            img = transoform(img).numpy()
-        else:
-            img = T(img)
+            img = transoform(img)
             
-        if img.shape[1] != img_size:
-            img = transforms.Resize((img_size, img_size))(img).numpy()
-        seq[t] = img
+        if img.size[0] != img_size:
+            img = transforms.Resize((img_size, img_size))(img)
+        seq[t] = T(img).numpy()
 
     # reshape back to four dimension
     # [output_number, image_size, image_size, image_channel]
